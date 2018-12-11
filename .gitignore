@@ -2,3 +2,4 @@
 variables.php
 .ht*
 htaccess
+*.md.backup
