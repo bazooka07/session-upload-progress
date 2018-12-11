@@ -4,7 +4,11 @@
  *
  * http://php.net/manual/en/session.upload-progress.php
  * https://www.sitepoint.com/tracking-upload-progress-with-php-and-javascript/
+ * https://stackoverflow.com/questions/21703081/php-upload-progress-in-php-5-4-is-not-working-session-variables-not-set
+ *
+ * session.auto_start ???
  * */
+
 const PREFIX = 'session.upload_progress.';
 
 const DEBUG = false;
@@ -47,6 +51,12 @@ if(!empty($_GET['key'])) {
 	echo "\n\n";
 	exit;
 } elseif(!empty($_FILES['pictures'])) {
+	// auto-cleanup
+	$old_files = glob($uploads_dir.'/*');
+	foreach($old_files as $f) {
+		unlink($f);
+	}
+
 	foreach ($_FILES['pictures']['error'] as $key => $error) {
 	    if ($error == UPLOAD_ERR_OK) {
 	        $tmp_name = $_FILES['pictures']['tmp_name'][$key];
@@ -57,6 +67,7 @@ if(!empty($_GET['key'])) {
 	    }
 	}
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -73,17 +84,25 @@ if(!empty($_GET['key'])) {
 		form { display: flex; width: 100%; }
 		input[type="file"] { flex-grow: 1; }
 		progress { width: 100%; height: 0.5rem; }
-		#id_tracking { display: table; width: 100%; }
-		#id_tracking > p { display: table-row; }
-		#id_tracking > p:nth-of-type(2n+1) { background-color: #eee; }
-		#id_tracking > p > span { display: table-cell; padding: 0.1rem 0.3rem; }
+		#id_tracking,
+		ul.listing { display: table; width: 100%; }
+		#id_tracking > p,
+		ul.listing > li { display: table-row; }
+		#id_tracking > p:nth-of-type(2n+1),
+		ul.listing li:nth-of-type(2n+1) { background-color: #eee; }
+		#id_tracking > p > span,
+		ul.listing > li > span { display: table-cell; padding: 0.1rem 0.3rem; }
 		#id_tracking > p > span:not(:first-of-type) { border-left: 1px solid #444; }
+		ul.listing > li > span:nth-of-type(2) { text-align: right; padding-right: 1rem; }
+		ul.listing > li > span:nth-of-type(3) { text-align: center; }
 	</style>
 </head><body>
 	<p>PHP version : <?php echo phpversion(); ?></p>
 	<h1>Parametrage php.ini</h1>
 	<pre>
 <?php
+const PATTERN = "%-32s : %s\n";
+
 $entries = explode("\n", trim('
 enabled
 cleanup
@@ -95,12 +114,13 @@ min_freq
 foreach($entries as $entry) {
 	$name = PREFIX.$entry;
 	$value = ini_get($name);
-	printf("%-32s : %s\n", $name, $value);
+	printf(PATTERN, $name, $value);
 }
 echo "\n";
+
 foreach(explode(' ', 'upload_max_filesize max_file_uploads post_max_size') as $entry) {
 	$value = ini_get($entry);
-	printf("%-32s : %s\n", $entry, $value);
+	printf(PATTERN, $entry, $value);
 }
 ?>
 	</pre>
@@ -120,6 +140,27 @@ $key = charAleatoire();
 	<h1>Envoi en cours</h1>
 	<div id="id_tracking">
 	</div>
+
+	<h1>Fichiers téléchargés</h1>
+	<ul class="listing">
+<?php
+const KO = 1024;
+const MO = 1048576;
+$files = glob($uploads_dir.'/*');
+foreach($files as $f) {
+	$stats = stat($f);
+	$date1 = date('Y-m-d H:i', $stats['mtime']);
+	$caption = basename($f);
+	$size = ($stats['size'] < KO) ? sprintf('%3d    ',intval($stats['size'])) :
+		($stats['size'] < MO) ? sprintf('%6.1f Ko', $stats['size'] / KO) :
+		sprintf('%6.1f Mo', $stats['size'] / MO);
+	echo <<< EOT
+		<li><span>$caption</span><span>$size</span><span>$date1</span></li>\n
+EOT;
+}
+?>
+	</ul>
+
 	<script>
 		(function() {
 			// https://developer.mozilla.org/fr/docs/Learn/JavaScript/Objects/JSON

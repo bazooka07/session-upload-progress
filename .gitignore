@@ -1,2 +1,4 @@
 /uploads/
 variables.php
+.ht*
+htaccess
